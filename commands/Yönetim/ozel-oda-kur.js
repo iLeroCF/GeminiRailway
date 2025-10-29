@@ -1,32 +1,48 @@
 // commands/Yönetim/ozel-oda-kur.js
 
-const { PermissionsBitField, ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { PermissionsBitField, ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, SlashCommandBuilder } = require('discord.js');
 
 module.exports = {
+    // Slash Command tanımı
+    data: new SlashCommandBuilder()
+        .setName('ozel-oda-kur')
+        .setDescription('Özel oda sistemini sunucuya kurar (Kategori, Ses Kanalı, Panel).')
+        .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+
+    // Prefix Command tanımı
     name: "ozel-oda-kur",
     aliases: ["özelodakur", "oda-sistemi-kur"],
     category: "Yönetim",
     description: "Özel oda sistemini sunucuya kurar (Kategori, Ses Kanalı, Panel).",
-    
     permissions: [PermissionsBitField.Flags.Administrator], 
 
-    execute: async (client, message, args) => {
-        
-        const guild = message.guild;
+    execute: async (client, interactionOrMessage) => {
+        const isInteraction = interactionOrMessage.isChatInputCommand?.() || interactionOrMessage.isButton?.(); // Hem slash hem de buton etkileşimlerini kontrol et
+        const guild = interactionOrMessage.guild;
         const guildID = guild.id;
         const db = client.db;
+
+        // Yanıt fonksiyonlarını tanımla
+        let replyFunction;
+        if (isInteraction) {
+            if (!interactionOrMessage.deferred) {
+                await interactionOrMessage.deferReply({ ephemeral: true });
+            }
+            // Panelden gelen etkileşimler için followUp, diğerleri için editReply kullan.
+            replyFunction = (options) => interactionOrMessage.replied || interactionOrMessage.deferred ? interactionOrMessage.followUp({ ...options, ephemeral: true }) : interactionOrMessage.editReply(options);
+        } else {
+            replyFunction = (options) => interactionOrMessage.reply(options);
+        }
 
         // Ayarları veritabanından çek
         let settings = client.settings.get(guildID);
         if (settings && settings.ozelOdaKategoriID) {
-            return message.reply("Özel oda sistemi zaten kurulu görünüyor.");
+            return await replyFunction({ content: "Özel oda sistemi zaten kurulu görünüyor." });
         }
-        if (!settings) {
-            settings = {}; // Eğer `.sunucu-kur` çalıştırılmadıysa boş bir obje oluştur
-        }
+        if (!settings) settings = {}; // Eğer `.sunucu-kur` çalıştırılmadıysa boş bir obje oluştur
 
         try {
-            await message.reply("Özel oda sistemi kurulumu başlatılıyor... ⌛");
+            await replyFunction({ content: "Özel oda sistemi kurulumu başlatılıyor... ⌛" });
 
             // 1. Kategori Oluştur
             const ozelOdaCat = await guild.channels.create({
@@ -95,7 +111,7 @@ module.exports = {
             db.set(`settings_${guildID}`, settings);
             client.settings.set(guildID, settings); // Hafızayı da güncelle
 
-            await message.channel.send({
+            await interactionOrMessage.channel.send({
                 embeds: [
                     new EmbedBuilder()
                         .setColor("Green")
@@ -106,7 +122,7 @@ module.exports = {
 
         } catch (error) {
             console.error("[HATA] 'ozel-oda-kur' komutu hatası:", error);
-            message.reply("Kurulum sırasında bir hata oluştu. Lütfen botun 'Kanalları Yönet' yetkisi olduğundan emin olun.");
+            await replyFunction({ content: "Kurulum sırasında bir hata oluştu. Lütfen botun 'Kanalları Yönet' yetkisi olduğundan emin olun." });
         }
     }
 };

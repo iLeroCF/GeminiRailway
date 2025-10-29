@@ -1,25 +1,41 @@
 // commands/Kullanıcı/say.js
 
-const { PermissionsBitField } = require('discord.js');
+const { PermissionsBitField, SlashCommandBuilder } = require('discord.js');
 
 module.exports = {
+    // Slash Command tanımı
+    data: new SlashCommandBuilder()
+        .setName('say')
+        .setDescription('Bot, yazdığınız mesajı sizin veya başkasının adına tekrar eder.')
+        .setDefaultMemberPermissions(PermissionsBitField.Flags.ManageMessages)
+        .addStringOption(option =>
+            option.setName('mesaj')
+                .setDescription('Tekrar edilecek mesaj.')
+                .setRequired(true))
+        .addUserOption(option =>
+            option.setName('kullanıcı')
+                .setDescription('Kimin adına konuşulacak? (Boş bırakırsanız siz)')
+                .setRequired(false)),
+
+    // Prefix Command tanımı
     name: "say",
     aliases: ["söyle", "tekrarla", "webhook-say"],
     category: "Kullanıcı",
     description: "Bot, yazdığınız mesajı sizin veya etiketlediğiniz kişinin adına (webhook ile) tekrar eder.",
     usage: "[@kullanıcı/ID] <mesaj>", // Kullanımı güncelledik
-
-    // Komutu kullanmak için "Mesajları Yönet" yetkisi
     permissions: [PermissionsBitField.Flags.ManageMessages],
 
     execute: async (client, message, args) => {
+        const isInteraction = !!interactionOrMessage.isChatInputCommand;
+        const guild = interactionOrMessage.guild;
+        const channel = interactionOrMessage.channel;
 
         // Botun webhook yönetme izni var mı?
-        if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageWebhooks)) {
-            return message.reply("Bu komutu kullanabilmem için 'Webhookları Yönet' iznine ihtiyacım var.");
+        if (!guild.members.me.permissions.has(PermissionsBitField.Flags.ManageWebhooks)) {
+            return interactionOrMessage.reply({ content: "Bu komutu kullanabilmem için 'Webhookları Yönet' iznine ihtiyacım var.", ephemeral: true });
         }
-        if (!message.channel.permissionsFor(message.guild.members.me).has(PermissionsBitField.Flags.ManageWebhooks)) {
-             return message.reply("Bu kanalda webhook oluşturma veya yönetme iznim yok.");
+        if (!channel.permissionsFor(guild.members.me).has(PermissionsBitField.Flags.ManageWebhooks)) {
+             return interactionOrMessage.reply({ content: "Bu kanalda webhook oluşturma veya yönetme iznim yok.", ephemeral: true });
         }
 
         let targetUser = message.author; // Varsayılan olarak komutu yazan kişi
@@ -49,13 +65,13 @@ module.exports = {
         }
 
         try {
-            // Mevcut webhook'ları bul
-            const webhooks = await message.channel.fetchWebhooks();
+            // Mevcut webhook'ları bul (channel üzerinden)
+            const webhooks = await channel.fetchWebhooks();
             let webhook = webhooks.find(wh => wh.owner.id === client.user.id && wh.name === "LeroSayHook");
 
             // Eğer bot'a ait webhook yoksa, yeni bir tane oluştur
             if (!webhook) {
-                webhook = await message.channel.createWebhook({
+                webhook = await channel.createWebhook({
                     name: 'LeroSayHook',
                     avatar: client.user.displayAvatarURL(),
                     reason: '.say komutu için oluşturuldu'
@@ -71,7 +87,7 @@ module.exports = {
 
         } catch (error) {
             console.error("[HATA] Say komutu (webhook) hatası:", error);
-             message.channel.send(`Webhook ile mesaj gönderilirken bir hata oluştu: ${error.message}`).catch(e => {});
+             channel.send(`Webhook ile mesaj gönderilirken bir hata oluştu: ${error.message}`).catch(e => {});
         }
     }
 };

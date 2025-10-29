@@ -1,9 +1,11 @@
 // events/messageCreate.js
 
-const { PermissionsBitField, EmbedBuilder } = require('discord.js');
+const { Events, PermissionsBitField, EmbedBuilder } = require('discord.js');
 const ms = require('ms'); // Zaman çevirme için
 
-module.exports = async (client, message) => {
+module.exports = {
+    name: Events.MessageCreate,
+    async execute(message, client) { // Parametre sırası değişti, client sona geldi
     if (message.author.bot || !message.guild) return;
 
     const settings = client.settings.get(message.guild.id);
@@ -142,4 +144,5 @@ module.exports = async (client, message) => {
 
     try { await command.execute(client, message, args); }
     catch (error) { console.error(`[HATA] ${command.name} (prefix) komutu çalıştırılırken hata:`, error); message.reply("Komutu çalıştırırken bir hata oluştu!"); }
+    }
 };

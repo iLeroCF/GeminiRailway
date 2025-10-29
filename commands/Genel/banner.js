@@ -1,24 +1,36 @@
 // commands/Kullanıcı/banner.js
 
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
 
 module.exports = {
+    // Slash Command tanımı
+    data: new SlashCommandBuilder()
+        .setName('banner')
+        .setDescription('Belirtilen kullanıcının veya kendinizin Discord banner\'ını gösterir.')
+        .addUserOption(option =>
+            option.setName('kullanıcı')
+                .setDescription('Banner\'ını görmek istediğiniz kullanıcı.')
+                .setRequired(false)),
+
+    // Prefix Command tanımı
     name: "banner",
     aliases: ["arkaplan"],
     category: "Kullanıcı",
     description: "Belirtilen kullanıcının veya kendinizin Discord banner'ını gösterir.",
 
-    execute: async (client, message, args) => {
-
-        // Kullanıcıyı belirle (etiketlenen, ID'si verilen veya komutu yazan)
-        const user = message.mentions.users.first() || client.users.cache.get(args[0]) || message.author;
+    execute: async (client, interactionOrMessage, args) => {
+        const isInteraction = !!interactionOrMessage.isChatInputCommand;
+        const author = isInteraction ? interactionOrMessage.user : interactionOrMessage.author;
+        const user = isInteraction
+            ? (interactionOrMessage.options.getUser('kullanıcı') || author)
+            : (interactionOrMessage.mentions.users.first() || client.users.cache.get(args[0]) || author);
 
         // Kullanıcı bilgilerini ve banner'ını çek (fetch ile en güncel hali alınır)
         try {
             await user.fetch({ force: true }); // force: true ile önbelleği atla
         } catch (error) {
             console.error("Kullanıcı bilgileri çekilirken hata:", error);
-            return message.reply("Kullanıcı bilgileri alınırken bir hata oluştu.");
+            return interactionOrMessage.reply({ content: "Kullanıcı bilgileri alınırken bir hata oluştu.", ephemeral: true });
         }
 
 
@@ -34,8 +46,8 @@ module.exports = {
                 .setDescription(`${user} kullanıcısının bir banner'ı bulunmuyor.`)
                  .setImage(user.displayAvatarURL({ dynamic: true, size: 2048 })) // Banner yerine avatarı göster
                 .setTimestamp()
-                .setFooter({ text: `İsteyen: ${message.author.tag}`});
-            return message.reply({ embeds: [noBannerEmbed] });
+                .setFooter({ text: `İsteyen: ${author.tag}`});
+            return interactionOrMessage.reply({ embeds: [noBannerEmbed] });
         }
 
         // Banner varsa embed oluştur
@@ -45,8 +57,8 @@ module.exports = {
             .setTitle(`${user.username}'ın Banner'ı`)
             .setImage(bannerUrl)
             .setTimestamp()
-            .setFooter({ text: `İsteyen: ${message.author.tag}` });
+            .setFooter({ text: `İsteyen: ${author.tag}` });
 
-        message.reply({ embeds: [embed] });
+        interactionOrMessage.reply({ embeds: [embed] });
     }
 };

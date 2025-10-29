@@ -1,30 +1,18 @@
 // utils/ticketHelper.js
 
-const { PermissionsBitField, ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
+const { PermissionsBitField, ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
 // Ticket sistemini kuran fonksiyon
-async function setupTicketSystem(guild, db, client, messageReplyChannel, roleIDs = {}) {
+async function setupTicketSystem(guild, db, client, roleIDs = {}) { // interactionOrMessage parametresini kaldırıyoruz
     const guildID = guild.id;
     let settings = client.settings.get(guildID) || {}; // Mevcut ayarları al veya boş obje oluştur
 
     // Zaten kurulu mu?
     if (settings.ticketKategoriID) {
-        if (messageReplyChannel) { // Eğer bir komut çağrısıysa bilgilendir
-             await messageReplyChannel.send("Ticket sistemi zaten kurulu görünüyor.").catch(console.error);
-        } else {
-             console.log(`[Ticket Kurulum] ${guild.name} sunucusunda sistem zaten kurulu, atlanıyor.`);
-        }
-        return false; // Kurulum yapılmadı
+        return { success: false, message: "Ticket sistemi zaten kurulu görünüyor." };
     }
 
     try {
-        if (messageReplyChannel) {
-            await messageReplyChannel.send("Ticket sistemi kurulumu başlatılıyor... ⌛").catch(console.error);
-        } else {
-            console.log(`[Ticket Kurulum] ${guild.name} sunucusunda kurulum başlatılıyor...`);
-        }
-
-
         // 1. Rolleri Oluştur
         const ticketYetkiliRole = roleIDs.yetkiliRolID ? { id: roleIDs.yetkiliRolID } : await guild.roles.create({
             name: 'Ticket Yetkilisi',
@@ -42,10 +30,9 @@ async function setupTicketSystem(guild, db, client, messageReplyChannel, roleIDs
             name: 'TICKETLER',
             type: ChannelType.GuildCategory,
             permissionOverwrites: [
-                // --- DÜZELTME: @everyone ID'sini kullan ---
                 { id: guild.roles.everyone.id, deny: [PermissionsBitField.Flags.ViewChannel] }, // Herkes görmesin
-                { id: ticketYetkiliRole.id, allow: [PermissionsBitField.Flags.ViewChannel] }, // Yetkili görsün
-                { id: ticketUyeRole.id, allow: [PermissionsBitField.Flags.ViewChannel] } // Ticketı olan üye görsün
+                { id: ticketYetkiliRole.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }, // Yetkili görsün ve mesaj yazabilsin
+                { id: ticketUyeRole.id, deny: [PermissionsBitField.Flags.ViewChannel] } // Ticketı olan üye kategoriyi görmesin
             ],
             reason: 'Lero Ticket Kurulumu'
         });
@@ -66,10 +53,9 @@ async function setupTicketSystem(guild, db, client, messageReplyChannel, roleIDs
             type: ChannelType.GuildText,
             parent: ticketCat.id,
             permissionOverwrites: [
-                // --- DÜZELTME: @everyone ID'sini kullan ---
-                { id: guild.roles.everyone.id, deny: [PermissionsBitField.Flags.SendMessages] }, // Kimse yazamasın
-                { id: guild.roles.everyone.id, allow: [PermissionsBitField.Flags.ViewChannel] }, // Ama herkes görebilsin
-                // Kayıtsızlar görmesin (Kontrol edilmiş dizi kullanılıyor)
+                { id: guild.roles.everyone.id, allow: [PermissionsBitField.Flags.ViewChannel], deny: [PermissionsBitField.Flags.SendMessages] }, // Herkes görsün ama yazamasın
+                { id: ticketYetkiliRole.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }, // Yetkili görsün ve yazabilsin
+                { id: ticketUyeRole.id, deny: [PermissionsBitField.Flags.ViewChannel] }, // Ticket üyesi rolü bu kanalı görmesin
                 ...kayitsizOverwrite
             ],
             reason: 'Lero Ticket Kurulumu'
@@ -81,7 +67,6 @@ async function setupTicketSystem(guild, db, client, messageReplyChannel, roleIDs
             type: ChannelType.GuildText,
             parent: ticketCat.id, // Veya istersen Yönetim kategorisine taşıyabilirsin
             permissionOverwrites: [
-                 // --- DÜZELTME: @everyone ID'sini kullan ---
                 { id: guild.roles.everyone.id, deny: [PermissionsBitField.Flags.ViewChannel] }, // Herkes görmesin
                 { id: ticketYetkiliRole.id, allow: [PermissionsBitField.Flags.ViewChannel] } // Sadece yetkili görsün
             ],
@@ -116,26 +101,21 @@ async function setupTicketSystem(guild, db, client, messageReplyChannel, roleIDs
         db.set(`settings_${guildID}`, settings);
         client.settings.set(guildID, settings); // Hafızayı da güncelle
 
-        if (messageReplyChannel) {
-             await messageReplyChannel.send({
+        return {
+            success: true,
+            message: {
                 embeds: [
                     new EmbedBuilder()
                         .setColor("Green")
                         .setTitle("✅ Ticket Sistemi Başarıyla Kuruldu!")
                         .setDescription(`Sistem kanalları ${ticketCat} kategorisi altına kuruldu.\nTicket açma paneli ${ticketOlusturChannel} kanalına gönderildi.\nYetkililer için rol: ${ticketYetkiliRole}`)
                 ]
-            }).catch(console.error);
-        } else {
-             console.log(`[Ticket Kurulum] ${guild.name} sunucusunda kurulum tamamlandı.`);
-        }
-        return true; // Kurulum başarılı
+            }
+        };
 
     } catch (error) {
         console.error("[HATA] Ticket sistemi kurulurken hata oluştu:", error);
-         if (messageReplyChannel) {
-             await messageReplyChannel.send("Ticket sistemi kurulurken bir hata oluştu. Lütfen botun 'Rolleri Yönet' ve 'Kanalları Yönet' yetkileri olduğundan emin olun.").catch(console.error);
-         }
-        return false; // Kurulum başarısız
+        return { success: false, message: "Ticket sistemi kurulurken bir hata oluştu. Lütfen botun 'Rolleri Yönet' ve 'Kanalları Yönet' yetkileri olduğundan emin olun." };
     }
 }
 

@@ -3,7 +3,6 @@
 const { Client, GatewayIntentBits, Partials, Collection } = require('discord.js');
 const config = require('./config.js');
 const { YamlDatabase } = require('five.db');
-// GiveawaysManager ve ms importları burdan kaldırıldı.
 
 // 1. Client'ı (Botu) Oluştur
 const client = new Client({
@@ -26,12 +25,12 @@ client.config = config;
 client.commands = new Collection();
 client.aliases = new Collection();
 client.settings = new Collection();
-// client.giveawaysManager burada tanımlanmayacak.
 
 // 4. Yardımcı Fonksiyonları Yükle
 require('./utils/helpers.js')(client);
 
 // 5. İşleyicileri (Handlers) Yükle
+require('./managers/giveawayManager.js')(client); // Çekiliş yöneticisini yükle
 require('./handlers/commandHandler.js')(client);
 require('./handlers/eventHandler.js')(client);
 

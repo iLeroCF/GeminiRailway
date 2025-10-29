@@ -1,9 +1,11 @@
 // events/interactionCreate.js
 
-const { InteractionType, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ChannelType, PermissionFlagsBits, MessageFlags, EmbedBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, PermissionsBitField } = require("discord.js"); // <-- PermissionsBitField EKLENDİ
+const { Events, InteractionType, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ChannelType, PermissionFlagsBits, MessageFlags, EmbedBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, PermissionsBitField } = require("discord.js");
 const fs = require('fs'); // Dosya işlemleri için (log)
 
-module.exports = async (client, interaction) => {
+module.exports = {
+    name: Events.InteractionCreate,
+    async execute(interaction, client) { // Parametre sırası değişti, client sona geldi
     const db = client.db;
     const member = interaction.member;
     // Interaction member yoksa (örn: DM'de buton), işlemi durdur
@@ -11,6 +13,33 @@ module.exports = async (client, interaction) => {
     const guild = interaction.guild;
     // Guild yoksa (DM'de buton), işlemi durdur
     if (!guild) return;
+
+    // --- SLASH KOMUT İŞLEYİCİ ---
+    if (interaction.isChatInputCommand()) {
+        const command = client.commands.get(interaction.commandName);
+        if (!command) {
+            console.error(`[HATA] '${interaction.commandName}' adında bir slash komutu bulunamadı.`);
+            return;
+        }
+        try {
+            await command.execute(client, interaction);
+        } catch (error) {
+            console.error(`[HATA] ${interaction.commandName} komutu çalıştırılırken hata:`, error);
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp({ content: 'Bu komutu çalıştırırken bir hata oluştu!', ephemeral: true });
+            } else {
+                await interaction.reply({ content: 'Bu komutu çalıştırırken bir hata oluştu!', ephemeral: true });
+            }
+        }
+        return; // Slash komutu işlendi, devam etme.
+    }
+
+
+    // --- BUTON VE MODAL İŞLEYİCİ ---
+    // Sadece buton veya modal etkileşimlerini işle
+    if (!interaction.isButton() && !interaction.isModalSubmit()) {
+        return; // Diğer etkileşim türlerini (örn: menüler) şimdilik atla
+    }
 
     // Ayarları çek
     const settings = client.settings.get(guild.id);
@@ -331,4 +360,5 @@ module.exports = async (client, interaction) => {
         }
     }
     // --- TICKET SİSTEMİ SONU ---
-};
+}
+    };

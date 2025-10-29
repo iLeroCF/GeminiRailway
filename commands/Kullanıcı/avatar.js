@@ -1,26 +1,40 @@
 // commands/Genel/avatar.js
 
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
 
 module.exports = {
-    // Bu bir prefix komutu olduğu için 'name' kullanıyoruz, 'data' değil.
+    // Slash Command tanımı
+    data: new SlashCommandBuilder()
+        .setName('avatar')
+        .setDescription('Belirtilen kullanıcının veya kendinizin avatarını gösterir.')
+        .addUserOption(option => 
+            option.setName('kullanıcı')
+                .setDescription('Avatarını görmek istediğiniz kullanıcı.')
+                .setRequired(false)),
+
+    // Prefix Command tanımı
     name: "avatar",
     aliases: ["av", "pp"],
     category: "Genel",
     description: "Belirtilen kullanıcının avatarını gösterir.",
 
-    // Prefix komutları 'message' ve 'args' alır
-    execute: async (client, message, args) => {
-        
-        const user = message.mentions.users.first() || client.users.cache.get(args[0]) || message.author;
+    // Hem 'message' hem de 'interaction' ile çalışacak execute fonksiyonu
+    execute: async (client, interactionOrMessage, args) => {
+        const isInteraction = !!interactionOrMessage.isChatInputCommand;
+        let user;
+
+        if (isInteraction) {
+            user = interactionOrMessage.options.getUser('kullanıcı') || interactionOrMessage.user;
+        } else {
+            user = interactionOrMessage.mentions.users.first() || client.users.cache.get(args[0]) || interactionOrMessage.author;
+        }
 
         const embed = new EmbedBuilder()
             .setColor("Blurple")
             .setTitle(`${user.username}'ın Avatarı`)
             .setImage(user.displayAvatarURL({ dynamic: true, size: 4096 }))
-            .setTimestamp()
-            .setFooter({ text: message.author.tag, iconURL: message.author.displayAvatarURL({ dynamic: true }) });
+            .setTimestamp();
 
-        message.reply({ embeds: [embed] });
+        await interactionOrMessage.reply({ embeds: [embed] });
     }
 };

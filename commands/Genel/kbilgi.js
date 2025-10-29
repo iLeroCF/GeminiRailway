@@ -1,28 +1,37 @@
 // commands/Kullanıcı/kbilgi.js
 
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
 const moment = require('moment'); // Zaman formatlama için
 require('moment-duration-format'); // moment için eklenti
 
 module.exports = {
+    // Slash Command tanımı
+    data: new SlashCommandBuilder()
+        .setName('kbilgi')
+        .setDescription('Belirtilen kullanıcının veya kendinizin profil bilgilerini gösterir.')
+        .addUserOption(option =>
+            option.setName('kullanıcı')
+                .setDescription('Bilgilerini görmek istediğiniz kullanıcı.')
+                .setRequired(false)),
+
+    // Prefix Command tanımı
     name: "kbilgi",
     aliases: ["kullanıcıbilgi", "profil", "ui", "userinfo"],
     category: "Kullanıcı",
     description: "Belirtilen kullanıcının veya kendinizin profil bilgilerini gösterir.",
 
-    execute: async (client, message, args) => {
-
-        // Kullanıcıyı belirle (etiketlenen, ID'si verilen veya komutu yazan)
+    execute: async (client, interactionOrMessage, args) => {
+        const isInteraction = !!interactionOrMessage.isChatInputCommand;
+        const author = isInteraction ? interactionOrMessage.user : interactionOrMessage.author;
+        const guild = interactionOrMessage.guild;
+        
         let member;
         try {
-            member = message.mentions.members.first() || message.guild.members.cache.get(args[0]) || message.member;
-             if (!member) {
-                 // Normalde bu bloğa girmez çünkü || message.member var ama ekstra kontrol
-                 return message.reply("Kullanıcı bulunamadı!");
-             }
+            const user = isInteraction ? (interactionOrMessage.options.getUser('kullanıcı') || author) : (interactionOrMessage.mentions.users.first() || client.users.cache.get(args[0]) || author);
+            member = guild.members.cache.get(user.id);
         } catch (error) {
              console.error("[HATA] kbilgi - Kullanıcı belirlenirken hata:", error); // Hata logu kalsın
-             return message.reply("Kullanıcı bilgileri alınırken bir hata oluştu (üye bulunamadı).");
+             return interactionOrMessage.reply({ content: "Kullanıcı bilgileri alınırken bir hata oluştu (üye bulunamadı).", ephemeral: true });
         }
 
 
@@ -35,7 +44,7 @@ module.exports = {
 
             // Kullanıcının rollerini listele
             const roles = member.roles.cache
-                .filter(role => role.id !== message.guild.id) // @everyone rolünü filtrele
+                .filter(role => role.id !== guild.id) // @everyone rolünü filtrele
                 .sort((a, b) => b.position - a.position) // Yetki sırasına göre sırala
                 .map(role => role.toString())
                 .slice(0, 15) // Çok fazla rol varsa listeyi kısalt
@@ -54,16 +63,16 @@ module.exports = {
                     { name: '👤 Kullanıcı Bilgisi', value: `**ID:** ${member.id}\n**Profil:** ${member.user}`, inline: false },
                     { name: '📅 Hesap Oluşturulma', value: `${accountCreated} (${accountCreatedAgo})`, inline: false },
                     { name: '➡️ Sunucuya Katılma', value: `${serverJoined} (${serverJoinedAgo})`, inline: false },
-                    { name: `🎭 Roller (${member.roles.cache.filter(r => r.id !== message.guild.id).size})`, value: roles, inline: false }
+                    { name: `🎭 Roller (${member.roles.cache.filter(r => r.id !== guild.id).size})`, value: roles, inline: false }
                 )
                 .setTimestamp()
-                .setFooter({ text: `İsteyen: ${message.author.tag}`, iconURL: message.author.displayAvatarURL({ dynamic: true }) });
+                .setFooter({ text: `İsteyen: ${author.tag}`, iconURL: author.displayAvatarURL({ dynamic: true }) });
 
-            message.reply({ embeds: [embed] });
+            interactionOrMessage.reply({ embeds: [embed] });
 
         } catch (error) {
             console.error("[HATA] kbilgi komutu içinde hata oluştu:", error); // Hata logu kalsın
-            message.reply("Komut işlenirken bir hata oluştu.");
+            interactionOrMessage.reply({ content: "Komut işlenirken bir hata oluştu.", ephemeral: true });
         }
     }
 };

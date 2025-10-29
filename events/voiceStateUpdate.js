@@ -1,8 +1,10 @@
 // events/voiceStateUpdate.js
 
-const { ChannelType, PermissionFlagsBits } = require("discord.js");
+const { Events, ChannelType, PermissionFlagsBits } = require("discord.js");
 
-module.exports = async (client, oldState, newState) => {
+module.exports = {
+    name: Events.VoiceStateUpdate,
+    async execute(oldState, newState, client) { // Parametre sırası değişti, client sona geldi
     const member = newState.member || oldState.member;
     if (!member || member.user.bot) return; 
 
@@ -113,5 +115,6 @@ module.exports = async (client, oldState, newState) => {
                 }
             }, 1000); 
         }
+    }
     }
 };

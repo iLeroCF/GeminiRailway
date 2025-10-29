@@ -18,6 +18,14 @@ module.exports = (client) => {
                     
                     if (command.name && command.execute) {
                         client.commands.set(command.name, command);
+
+                        // YENİ: Slash komutları için ek bir kontrol
+                        // Eğer 'data' bir dizi ise (örn: kayıt.js), her bir slash komut adını da koleksiyona ekle.
+                        if (Array.isArray(command.data)) {
+                            command.data.forEach(slashCommand => {
+                                client.commands.set(slashCommand.name, command);
+                            });
+                        }
                         
                         if (command.aliases && Array.isArray(command.aliases)) {
                             command.aliases.forEach(alias => {
